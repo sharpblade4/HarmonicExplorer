@@ -43,12 +43,6 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
-    //==============================================================================RRR
-    // void getNextAudioBlock (const juce::AudioSourceChannelInfo& bufferToFill) override
-    // {
-    //     synthAudioSource.getNextAudioBlock (bufferToFill);
-    // }
-
     juce::MidiKeyboardState& getKeyboardState();
 
 private:

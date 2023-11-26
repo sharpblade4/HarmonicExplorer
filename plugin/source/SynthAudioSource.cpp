@@ -1,18 +1,30 @@
 #include "HarmonicExplorer/SynthAudioSource.h"
 
 ////////////////// SINE WAVE VOICE  ////////////////////////
+SineWaveVoice::SineWaveVoice() {
+    static_assert(AMOUNT_OF_HARMONICS >= 1, "must have at least 1 harmonic: the fundamental"); 
+    for (auto i=0; i<AMOUNT_OF_HARMONICS; ++i) {
+        currentAngles[i] = 0.0;
+        anglesDeltas[i] = 0.0;
+        levels[i] = (float) 0.15 * (AMOUNT_OF_HARMONICS - i)/AMOUNT_OF_HARMONICS;
+        harmonicFactors[i] = i == 0 ? 0.25 : i + 4;
+    }
+}
+
 
 void SineWaveVoice::startNote(int midiNoteNumber, float velocity,
                 juce::SynthesiserSound*, int /*currentPitchWheelPosition*/) 
 {
-    currentAngle = 0.0;
-    level = velocity * 0.15;
+    // level = velocity * 0.15;  TODO use velocity
+    juce::ignoreUnused(velocity);
+
     tailOff = 0.0;
-
     auto cyclesPerSecond = juce::MidiMessage::getMidiNoteInHertz (midiNoteNumber);
-    auto cyclesPerSample = cyclesPerSecond / getSampleRate();
-
-    angleDelta = cyclesPerSample * juce::MathConstants<double>::twoPi;
+    auto const sampleRate = getSampleRate();
+    for (auto i=0; i<AMOUNT_OF_HARMONICS; ++i) {
+        currentAngles[i] = 0.0;
+        anglesDeltas[i] = ((cyclesPerSecond * harmonicFactors[i]) / sampleRate) * juce::MathConstants<double>::twoPi;
+    }
 }
 
 void SineWaveVoice::stopNote(float /*velocity*/, bool allowTailOff) 
@@ -29,48 +41,46 @@ void SineWaveVoice::stopNote(float /*velocity*/, bool allowTailOff)
     {
         // we're being told to stop playing immediately, so reset everything..
         clearCurrentNote();
-        angleDelta = 0.0;
+        std::fill(std::begin(anglesDeltas), std::end(anglesDeltas), 0.0);
+    }
+}
+
+void SineWaveVoice::computeSample(juce::AudioBuffer<float>& outputBuffer, int startSample) {
+    float tailOffFactor = tailOff > 0.0 ? (float) tailOff : 1.0;
+    float weightedSum = 0.0;
+    for (auto i=0; i<AMOUNT_OF_HARMONICS; ++i) {
+        weightedSum += ((float) std::sin(currentAngles[i])) * levels[i] * tailOffFactor;
+    }
+    auto currentSample = weightedSum / AMOUNT_OF_HARMONICS;
+
+    for (auto i = outputBuffer.getNumChannels(); --i >= 0;) {
+        outputBuffer.addSample (i, startSample, currentSample);
+    }
+    for (auto i=0; i<AMOUNT_OF_HARMONICS; ++i) {
+            currentAngles[i] += anglesDeltas[i];
     }
 }
 
 
+
+
 void SineWaveVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int startSample, int numSamples) 
 {
-    if (! juce::approximatelyEqual (angleDelta, 0.0))
-    {
-        if (tailOff > 0.0)
-        {
-            while (--numSamples >= 0)
-            {
-                auto currentSample = (float) (std::sin (currentAngle) * level * tailOff);
-
-                for (auto i = outputBuffer.getNumChannels(); --i >= 0;)
-                    outputBuffer.addSample (i, startSample, currentSample);
-
-                currentAngle += angleDelta;
+    if (! juce::approximatelyEqual (anglesDeltas[0], 0.0)) {
+        if (tailOff > 0.0) {
+            while (--numSamples >= 0)  {
+                computeSample(outputBuffer, startSample);
                 ++startSample;
 
                 tailOff *= 0.99;
-
-                if (tailOff <= 0.005)
-                {
-                    clearCurrentNote();
-
-                    angleDelta = 0.0;
+                if (tailOff <= 0.005)  {
+                    stopNote(0.0, false);
                     break;
                 }
             }
-        }
-        else
-        {
-            while (--numSamples >= 0)
-            {
-                auto currentSample = (float) (std::sin (currentAngle) * level);
-
-                for (auto i = outputBuffer.getNumChannels(); --i >= 0;)
-                    outputBuffer.addSample (i, startSample, currentSample);
-
-                currentAngle += angleDelta;
+        } else {
+            while (--numSamples >= 0)  {
+                computeSample(outputBuffer, startSample);
                 ++startSample;
             }
         }

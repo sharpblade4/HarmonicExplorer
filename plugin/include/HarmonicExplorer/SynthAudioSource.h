@@ -1,6 +1,14 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_basics/juce_audio_basics.h>
 
+/*  A SynthesiserSound is a type of sound but in practice a control over what notes/channels can be played. 
+    The Synthesiser assigns a SynthesiserSound to a SynthesiserVoice which plays under that SynthesiserSound.
+    Effectively, the Synthesiser plays SynthesiserVoice when notes are played.  
+*/
+
+static const int AMOUNT_OF_HARMONICS = 4;
+
+
 ////////////////// SINE WAVE SOUND  ////////////////////////
 struct SineWaveSound   : public juce::SynthesiserSound
 {
@@ -14,6 +22,8 @@ struct SineWaveSound   : public juce::SynthesiserSound
 ////////////////// SINE WAVE VOICE  ////////////////////////
 struct SineWaveVoice  : public juce::SynthesiserVoice
 {
+    SineWaveVoice();
+
     bool canPlaySound (juce::SynthesiserSound* sound) override
     {
         return dynamic_cast<SineWaveSound*> (sound) != nullptr;
@@ -21,7 +31,6 @@ struct SineWaveVoice  : public juce::SynthesiserVoice
 
     void startNote (int midiNoteNumber, float velocity,
                     juce::SynthesiserSound*, int /*currentPitchWheelPosition*/) override;
-
 
     void stopNote (float /*velocity*/, bool allowTailOff) override;
     
@@ -33,7 +42,13 @@ struct SineWaveVoice  : public juce::SynthesiserVoice
     using SynthesiserVoice::renderNextBlock;
 
 private:
-    double currentAngle = 0.0, angleDelta = 0.0, level = 0.0, tailOff = 0.0;
+    double tailOff = 0.0;
+    double currentAngles[AMOUNT_OF_HARMONICS] = {0.0};
+    double anglesDeltas[AMOUNT_OF_HARMONICS] = {0.0};
+    float levels[AMOUNT_OF_HARMONICS] = {0.0};
+    float harmonicFactors[AMOUNT_OF_HARMONICS] = {0.0};
+
+    void computeSample(juce::AudioBuffer<float>& outputBuffer, int startSample);
 };
 
 
