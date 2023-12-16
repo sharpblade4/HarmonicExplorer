@@ -22,7 +22,7 @@ struct SineWaveSound   : public juce::SynthesiserSound
 ////////////////// SINE WAVE VOICE  ////////////////////////
 struct SineWaveVoice  : public juce::SynthesiserVoice
 {
-    SineWaveVoice();
+    SineWaveVoice(float* levels);
 
     bool canPlaySound (juce::SynthesiserSound* sound) override
     {
@@ -45,8 +45,8 @@ private:
     double tailOff = 0.0;
     double currentAngles[AMOUNT_OF_HARMONICS] = {0.0};
     double anglesDeltas[AMOUNT_OF_HARMONICS] = {0.0};
-    float levels[AMOUNT_OF_HARMONICS] = {0.0};
     float harmonicFactors[AMOUNT_OF_HARMONICS] = {0.0};
+    float* levels;
 
     void computeSample(juce::AudioBuffer<float>& outputBuffer, int startSample);
 };
@@ -65,8 +65,19 @@ public:
     void releaseResources() override {}
  
     void getNextAudioBlock (const juce::AudioSourceChannelInfo& bufferToFill) override;
+
+    void setLevelAt(int index, float value) {
+        if (index < AMOUNT_OF_HARMONICS && index >= 0 && value <= 1.0 && value >= 0) {
+            levelsArr[index] = value;
+        }
+    }
+    float getLevelAt(int index) {
+        return index < AMOUNT_OF_HARMONICS && index >= 0 ? levelsArr[index] : 0.0; 
+    }
  
 private:
     juce::MidiKeyboardState& keyboardState;
     juce::Synthesiser synth;
+
+    float levelsArr[AMOUNT_OF_HARMONICS] = {0.0};
 };

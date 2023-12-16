@@ -1,13 +1,12 @@
 #include "HarmonicExplorer/SynthAudioSource.h"
 
 ////////////////// SINE WAVE VOICE  ////////////////////////
-SineWaveVoice::SineWaveVoice() {
+SineWaveVoice::SineWaveVoice(float* levelsRef) : levels(levelsRef) {
     static_assert(AMOUNT_OF_HARMONICS >= 1, "must have at least 1 harmonic: the fundamental"); 
     for (auto i=0; i<AMOUNT_OF_HARMONICS; ++i) {
         currentAngles[i] = 0.0;
         anglesDeltas[i] = 0.0;
-        levels[i] = (float) 0.15 * (AMOUNT_OF_HARMONICS - i)/AMOUNT_OF_HARMONICS;
-        harmonicFactors[i] = i == 0 ? 0.25 : i + 4;
+        harmonicFactors[i] = (i == 0 ? 0.25 : i + 4);
     }
 }
 
@@ -27,7 +26,7 @@ void SineWaveVoice::startNote(int midiNoteNumber, float velocity,
     }
 }
 
-void SineWaveVoice::stopNote(float /*velocity*/, bool allowTailOff) 
+void SineWaveVoice::stopNote(float /*velocit1y*/, bool allowTailOff) 
 {
     if (allowTailOff)
     {
@@ -49,9 +48,9 @@ void SineWaveVoice::computeSample(juce::AudioBuffer<float>& outputBuffer, int st
     float tailOffFactor = tailOff > 0.0 ? (float) tailOff : 1.0;
     float weightedSum = 0.0;
     for (auto i=0; i<AMOUNT_OF_HARMONICS; ++i) {
-        weightedSum += ((float) std::sin(currentAngles[i])) * levels[i] * tailOffFactor;
+        weightedSum += ((float) std::sin(currentAngles[i])) * 0.15 * levels[i] * tailOffFactor;
     }
-    auto currentSample = weightedSum / AMOUNT_OF_HARMONICS;
+    auto currentSample = weightedSum / AMOUNT_OF_HARMONICS;  // avg for mix
 
     for (auto i = outputBuffer.getNumChannels(); --i >= 0;) {
         outputBuffer.addSample (i, startSample, currentSample);
@@ -93,8 +92,12 @@ void SineWaveVoice::renderNextBlock(juce::AudioBuffer<float>& outputBuffer, int 
 SynthAudioSource::SynthAudioSource (juce::MidiKeyboardState& keyState)
     : keyboardState (keyState)
 {
+    for (auto i=0; i<AMOUNT_OF_HARMONICS; ++i) {
+        levelsArr[i] = (float) (AMOUNT_OF_HARMONICS - i)/AMOUNT_OF_HARMONICS;
+    }
+
     for (auto i = 0; i < 5; ++i)                // [1]
-        synth.addVoice (new SineWaveVoice());
+        synth.addVoice (new SineWaveVoice(levelsArr));
 
     synth.addSound (new SineWaveSound());       // [2]
 }

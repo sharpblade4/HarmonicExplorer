@@ -11,6 +11,16 @@ public:
     AudioPluginAudioProcessor();
     ~AudioPluginAudioProcessor() override;
 
+
+    void setLevelAt(int index, float value) {
+        synthAudioSource.setLevelAt(index, value);
+    }
+    float getLevelAt(int index) {
+        return synthAudioSource.getLevelAt(index);
+    }
+
+
+
     //==============================================================================
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
